@@ -20,8 +20,9 @@ int main() {
   // Set system clock to 80MHz, this seems like a reasonable value for the 4MHz
   // data
   set_sys_clock_khz(80000, true);
-  stdio_init_all();
   reconfigure_clocks();
+  // stdio_init_all must be called after clock change, because otherwise UART baudrate will be wrong
+  stdio_init_all();
 
   //  Used to keep track of battery voltage data stream
   uint8_t can_chain = 0, can_slave = 0, can_cell = 0;
@@ -65,6 +66,12 @@ int main() {
         }
       }
     }
+
+    printf("Min voltage[mV]: %f\n", min_voltage_mV);
+    printf("Max voltage[mV]: %f\n", max_voltage_mV);
+    printf("Min temperature[C]: %f\n", min_temperature_C);
+    printf("Max temperature[C]: %f\n", max_temperature_C);
+    printf("\n\n");
 
     sleep_ms(500);
   }
