@@ -1,3 +1,10 @@
+# python script for DBC generation
+venv
+
+openocd
+pico-extras
+pico-sdk
+
 # Firmware builds
 firmware-pico/build
 

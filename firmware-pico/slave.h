@@ -15,20 +15,23 @@ struct battery_interface {
   uint16_t sm;
 };
 
-extern float target_balance_voltage_mV;
-
 extern void SLAVE_init(void);
 extern void SLAVE_handle(void);
 
 /*
  * returns the cell voltage of the given cell in mV. returns 5000 on error.
  */
-extern uint16_t SLAVE_GetVoltage_mV(uint8_t chainNumber, uint8_t slaveNumber, uint8_t cellNumber);
+extern float SLAVE_GetVoltage_mV(uint8_t chainNumber, uint8_t slaveNumber, uint8_t cellNumber);
 
 /*
- * returns the temperature of the given cell in °C. returns 100 on error.
+ * returns the temperature of the sensor in °C. returns 100 on error.
  */
-extern uint8_t SLAVE_GetCellTemperature_C(uint8_t numberOfSlave, uint8_t numberOfSensor);
+extern float SLAVE_GetBatteryTemperature_C(uint8_t chainNumber, uint8_t slaveNumber, uint8_t sensorNumber);
+
+/*
+ * returns the temperature of the sensor in °C. returns 100 on error.
+ */
+extern float SLAVE_GetPCBTemperature_C(uint8_t chainNumber, uint8_t slaveNumber);
 
 extern float SLAVE_Get_min_voltage_mV(void);
 extern float SLAVE_Get_max_voltage_mV(void);

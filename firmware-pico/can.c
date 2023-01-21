@@ -1,5 +1,8 @@
 #include "can.h"
 
+
+#define DBC_TEMPERATURE_FACTOR 10
+
 void SPI_configure() {
   spi_init(SPI_PORT, 1000000);
   spi_set_format(SPI_PORT, 8, 0, 0, SPI_MSB_FIRST);
@@ -112,16 +115,51 @@ void transmit(uint16_t id, uint8_t* data, uint8_t length) {
 }
 
 
-void CAN_send_pack_voltage(float overall_voltage_mV){
+void CAN_send_errors(t_error_flags error_flags){
+  // combining flags
+  uint8_t first_byte = 0x00;
+  first_byte |= error_flags.warning_AnyWarning << 0;
+  first_byte |= error_flags.error_AnyError << 1;
+  // warnings flags
+  uint8_t second_byte = 0x00;
+  second_byte |= error_flags.warning_SlaveTimeout << 0;
+  second_byte |= error_flags.warning_UV << 1;
+  second_byte |= error_flags.warning_OV << 2;
+  second_byte |= error_flags.warning_UT << 3;
+  second_byte |= error_flags.warning_OT << 4;
+  second_byte |= error_flags.warning_OC << 5;
+  // error flags
+  uint8_t third_byte = 0x00;
+  third_byte |= error_flags.error_SlaveTimeout << 0;
+  third_byte |= error_flags.error_UV << 1;
+  third_byte |= error_flags.error_OV << 2;
+  third_byte |= error_flags.error_UT << 3;
+  third_byte |= error_flags.error_OT << 4;
+  third_byte |= error_flags.error_OC << 5;
+
+  transmit(0x4ef, (uint8_t[]){first_byte, second_byte, third_byte}, 3);
+}
+
+void CAN_send_pack_voltage(float overall_voltage_mV, float current_A){
     uint32_t uint32_overall_voltage_mV = (uint32_t)overall_voltage_mV;
-    transmit(0x4f0, (uint8_t[]){uint32_overall_voltage_mV >> 24, uint32_overall_voltage_mV >> 16, uint32_overall_voltage_mV >> 8, uint32_overall_voltage_mV, uint32_overall_voltage_mV >> 8, uint32_overall_voltage_mV}, 6);
+    int32_t int32_overall_current_mA = (int32_t)(current_A * 1000);
+    transmit(0x4f0, (uint8_t[]){
+      uint32_overall_voltage_mV >> 24,
+      uint32_overall_voltage_mV >> 16,
+      uint32_overall_voltage_mV >> 8,
+      uint32_overall_voltage_mV,
+      int32_overall_current_mA >> 24,
+      int32_overall_current_mA >> 16,
+      int32_overall_current_mA >> 8,
+      int32_overall_current_mA},
+       8);
 }
 
 void CAN_send_min_max_values(float min_voltage_mV, float max_voltage_mV, float min_temperature_C, float max_temperature_C){
     uint16_t uint16_min_voltage_mV = (uint16_t)min_voltage_mV;
     uint16_t uint16_max_voltage_mV = (uint16_t)max_voltage_mV;
-    uint16_t uint16_min_temperature_C = (uint16_t)min_temperature_C;
-    uint16_t uint16_max_temperature_C = (uint16_t)max_temperature_C;
+    uint16_t uint16_min_temperature_C = (uint16_t)min_temperature_C * DBC_TEMPERATURE_FACTOR;
+    uint16_t uint16_max_temperature_C = (uint16_t)max_temperature_C * DBC_TEMPERATURE_FACTOR;
     transmit(0x4f1, (uint8_t[]){
         uint16_max_voltage_mV >> 8, uint16_max_voltage_mV,
         uint16_min_voltage_mV >> 8, uint16_min_voltage_mV,
@@ -133,4 +171,14 @@ void CAN_send_min_max_values(float min_voltage_mV, float max_voltage_mV, float m
 void CAN_send_individual_cell_voltage(uint8_t chain, uint8_t slave, uint8_t cell, float voltage_mV){
     uint16_t uint16_voltage_mV = (uint16_t)voltage_mV;
     transmit(0x4f2, (uint8_t[]){chain, slave, cell, uint16_voltage_mV >> 8, uint16_voltage_mV}, 5);
+}
+
+void CAN_send_individual_temperature_battery(uint8_t chain, uint8_t slave, uint8_t sensor_number, float temperature_C){
+    uint16_t uint16_temperature_C = (uint16_t)temperature_C * DBC_TEMPERATURE_FACTOR;
+    transmit(0x4f3, (uint8_t[]){chain, slave, sensor_number, uint16_temperature_C >> 8, uint16_temperature_C}, 5);
+}
+
+void CAN_send_individual_temperature_pcb(uint8_t chain, uint8_t slave, uint8_t sensor_number, float temperature_C){
+    uint16_t uint16_temperature_C = (uint16_t)temperature_C * DBC_TEMPERATURE_FACTOR;
+    transmit(0x4f4, (uint8_t[]){chain, slave, sensor_number, uint16_temperature_C >> 8, uint16_temperature_C}, 5);
 }

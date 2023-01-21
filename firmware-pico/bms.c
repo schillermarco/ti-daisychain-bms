@@ -1,78 +1,55 @@
-#include "hardware/clocks.h"
-
 #include "cfg.h"
-#include "can.h"
-#include "slave.h"
+#include "application.h"
+#include "pico/stdlib.h"
 
 
 // PIO and state machine selection
 #define SM_SQ 0
 
+volatile int Flag_10ms = 0;
 
-void reconfigure_clocks() {
-  // Clock the peripherals, ref clk, and rtc from the 12MHz crystal oscillator
-  clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_XOSC_CLKSRC, 12000000, 12000000);
-  clock_configure(clk_ref, CLOCKS_CLK_REF_CTRL_SRC_VALUE_XOSC_CLKSRC, 0, 12000000, 12000000);
-  clock_configure(clk_rtc, 0, CLOCKS_CLK_RTC_CTRL_AUXSRC_VALUE_XOSC_CLKSRC, 12000000, 46875);
+void timerHandle_10ms()
+{
+  Flag_10ms = 1;
 }
 
 int main() {
-  // Set system clock to 80MHz, this seems like a reasonable value for the 4MHz
-  // data
-  set_sys_clock_khz(80000, true);
-  reconfigure_clocks();
-  // stdio_init_all must be called after clock change, because otherwise UART baudrate will be wrong
-  stdio_init_all();
+  APPLICATION_init();
 
-  //  Used to keep track of battery voltage data stream
-  uint8_t can_chain = 0, can_slave = 0, can_cell = 0;
+  int Counter10ms  = 0;
+  int Counter100ms  = 0;
+  int Counter500ms  = 0;
 
-  SLAVE_init();
-  CAN_init();
+  struct repeating_timer timer;
+  add_repeating_timer_ms(10, timerHandle_10ms, NULL, &timer);
 
-  // Main loop.
   while (1) {
-    SLAVE_handle();
-
-    float overall_voltage_mV = 0;
-    for (int chain = 0; chain < CHAIN_COUNT; chain++) {
-        for (int slave = 0; slave < SLAVES_PER_CHAIN; slave++) {
-            for (int cell = 0; cell < CELLS_PER_SLAVE; cell++) {
-              overall_voltage_mV += SLAVE_GetVoltage_mV(chain, slave, cell);
-            }
-        }
+    if(Flag_10ms == 1)
+    {
+        Flag_10ms = 0;
+        Counter10ms++;
+        // 10ms
+        APPLICATION_10ms();
     }
-    CAN_send_pack_voltage(overall_voltage_mV);
-
-    float min_voltage_mV = SLAVE_Get_min_voltage_mV();
-    float max_voltage_mV = SLAVE_Get_max_voltage_mV();
-    float min_temperature_C = SLAVE_Get_min_temperature_C();
-    float max_temperature_C = SLAVE_Get_max_temperature_C();
-    CAN_send_min_max_values(min_voltage_mV, max_voltage_mV, min_temperature_C, max_temperature_C);
-
-    // Send out individual cell voltages one at a time
-    uint16_t voltage_mV = SLAVE_GetVoltage_mV(can_chain, can_slave, can_cell);
-    CAN_send_individual_cell_voltage(can_chain, can_slave, can_cell, voltage_mV);
-
-    can_cell++;
-    if (can_cell == CELLS_PER_SLAVE) {
-      can_cell = 0;
-      can_slave++;
-      if (can_slave == SLAVES_PER_CHAIN) {
-        can_slave = 0;
-        can_chain++;
-        if (can_chain == CHAIN_COUNT) {
-          can_chain = 0;
-        }
-      }
+    if(Counter10ms >= 10)
+    {
+        Counter10ms = 0;
+        Counter100ms++;
+        // 100ms
+        APPLICATION_100ms();
     }
-
-    printf("Min voltage[mV]: %f\n", min_voltage_mV);
-    printf("Max voltage[mV]: %f\n", max_voltage_mV);
-    printf("Min temperature[C]: %f\n", min_temperature_C);
-    printf("Max temperature[C]: %f\n", max_temperature_C);
-    printf("\n\n");
-
-    sleep_ms(500);
+    if(Counter100ms >= 5)
+    {
+      Counter100ms = 0;
+      Counter500ms++;
+      // 500ms
+      APPLICATION_500ms();
+    }
+    if(Counter500ms >= 2)
+    {
+      Counter500ms = 0;
+      // 1s
+      APPLICATION_1s();
+    }
   }
 }

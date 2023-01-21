@@ -4,6 +4,7 @@
 #include "hardware/clocks.h"
 #include "hardware/spi.h"
 #include "hardware/gpio.h"
+#include "error.h"
 
 // Define pins for SPI (to CAN)
 #define SPI_PORT spi0
@@ -85,10 +86,16 @@ void CAN_reg_modify(uint8_t reg, uint8_t mask, uint8_t val);
 
 void CAN_configure(uint16_t id);
 
-void CAN_send_pack_voltage(float pack_voltage_mV);
+void CAN_send_pack_voltage(float pack_voltage_mV, float current_A);
+
+void CAN_send_errors(t_error_flags error_flags);
 
 void CAN_send_min_max_values(float min_voltage_mV, float max_voltage_mV, float min_temperature_C, float max_temperature_C);
 
 void CAN_send_individual_cell_voltage(uint8_t chain, uint8_t slave, uint8_t cell, float voltage_mV);
+
+void CAN_send_individual_temperature_battery(uint8_t chain, uint8_t slave, uint8_t sensor_number, float temperature_C);
+
+void CAN_send_individual_temperature_pcb(uint8_t chain, uint8_t slave, uint8_t sensor_number, float temperature_C);
 
 #endif

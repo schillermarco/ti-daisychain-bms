@@ -9,12 +9,14 @@
 
 #define NUMBER_OF_TRANSACTION_ERROR_HISTORY 10
 
-float min_voltage_mV = MIN_VOLTAGE_mV;
-float max_voltage_mV = MAX_VOLTAGE_mV;
-float min_temperature_C = MIN_TEMPERATURE_C;
-float max_temperature_C = MAX_TEMPERATURE_C;
+#define VOLTAGE_CONVERSION_FACTOR (5000.0 / 65536)
 
-float target_balance_voltage_mV = 0;
+volatile float min_voltage_mV = MIN_VOLTAGE_mV;
+volatile float max_voltage_mV = MAX_VOLTAGE_mV;
+volatile float min_temperature_C = MIN_TEMPERATURE_C;
+volatile float max_temperature_C = MAX_TEMPERATURE_C;
+
+volatile float target_balance_voltage_mV = 0;
 
 #define TRANSACTION_RESULT_OK             0x00
 #define TRANSACTION_RESULT_LENGTH_ERROR   0x01
@@ -34,11 +36,11 @@ uint16_t raw_cell_voltages[CHAIN_COUNT][SLAVES_PER_CHAIN][CELLS_PER_SLAVE];
 uint16_t raw_aux_voltage[CHAIN_COUNT][SLAVES_PER_CHAIN][AUX_CHANNELS_PER_SLAVE];
 
 // contains the raw ADC values for the cell voltages from the slave chip
-uint16_t cell_voltages_mV[CHAIN_COUNT][SLAVES_PER_CHAIN][CELLS_PER_SLAVE];
+float cell_voltages_mV[CHAIN_COUNT][SLAVES_PER_CHAIN][CELLS_PER_SLAVE];
 // contains the temperature values for the battery pack
-uint16_t temperatures_battery_C[CHAIN_COUNT][SLAVES_PER_CHAIN][AUX_CHANNEL_TEMPERATURE_SENSOR_BATTERY_COUNT];
+float temperatures_battery_C[CHAIN_COUNT][SLAVES_PER_CHAIN][AUX_CHANNEL_TEMPERATURE_SENSOR_BATTERY_COUNT];
 // contains the temperature values for the PCB sensor. One temperature sensor per PCB
-uint16_t temperatures_pcb_C[CHAIN_COUNT][SLAVES_PER_CHAIN];
+float temperatures_pcb_C[CHAIN_COUNT][SLAVES_PER_CHAIN];
 
 // contains a bitmap, which cells should be balanced
 uint16_t balance_bitmap[CHAIN_COUNT][SLAVES_PER_CHAIN];
@@ -49,7 +51,7 @@ uint8_t rx_data_buffer[RX_BUFFER_SIZE];
 
 
 // Define pins for RS485 transceivers
-struct battery_interface battery_interfaces[CHAIN_COUNT] = {{
+struct battery_interface battery_interfaces[3] = {{
                                                       .serial_out = 2,
                                                       .serial_master = 3,
                                                       .serial_enable = 4,
@@ -57,11 +59,18 @@ struct battery_interface battery_interfaces[CHAIN_COUNT] = {{
                                                       .sm = 0,
                                                   },
                                                   {
+                                                      .serial_out = 6,
+                                                      .serial_master = 7,
+                                                      .serial_enable = 8,
+                                                      .serial_in = 9,
+                                                      .sm = 1,
+                                                  },
+                                                  {
                                                       .serial_out = 10,
                                                       .serial_master = 11,
                                                       .serial_enable = 12,
                                                       .serial_in = 13,
-                                                      .sm = 1,
+                                                      .sm = 2,
                                                   }};
 
 // Calculate message CRC.
@@ -99,7 +108,7 @@ uint8_t pcb_below_temp(uint8_t chain, uint8_t slave) {
 }
 
 float voltage_mV(uint16_t adc) {
-  return (float)(adc / 13107.0);
+  return (float)(adc * VOLTAGE_CONVERSION_FACTOR);
 }
 
 float get_C_from_K(float kelvin){
@@ -253,7 +262,6 @@ void read_all_adc_values() {
     // Collect voltages and temperature data for all modules
     // We want to complete this loop as fast as possible because balancing must
     // be disabled during measurement
-
     for (int chain = 0; chain < CHAIN_COUNT; chain++) {
         for (int slave = 0; slave < SLAVES_PER_CHAIN; slave++) {
             // Clear the input FIFO just in case
@@ -458,8 +466,18 @@ void SLAVE_handle(void){
 
 
 
-uint16_t SLAVE_GetVoltage_mV(uint8_t chainNumber, uint8_t slaveNumber, uint8_t cellNumber){
-    return (uint16_t)(cell_voltages_mV[chainNumber][slaveNumber][cellNumber]);
+float SLAVE_GetVoltage_mV(uint8_t chainNumber, uint8_t slaveNumber, uint8_t cellNumber){
+    return cell_voltages_mV[chainNumber][slaveNumber][cellNumber];
+}
+
+float SLAVE_GetBatteryTemperature_C(uint8_t chainNumber, uint8_t slaveNumber, uint8_t sensorNumber)
+{
+  return temperatures_battery_C[chainNumber][slaveNumber][sensorNumber];
+}
+
+extern float SLAVE_GetPCBTemperature_C(uint8_t chainNumber, uint8_t slaveNumber)
+{
+  return temperatures_pcb_C[chainNumber][slaveNumber];
 }
 
 float SLAVE_Get_min_voltage_mV(void){
