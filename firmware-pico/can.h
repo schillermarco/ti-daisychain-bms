@@ -1,3 +1,21 @@
+#ifndef CAN_H
+#define CAN_H
+
+#include "hardware/clocks.h"
+#include "hardware/spi.h"
+#include "hardware/gpio.h"
+#include "error.h"
+
+// Define pins for SPI (to CAN)
+#define SPI_PORT spi0
+#define SPI_MISO 16
+#define SPI_CS 17
+#define SPI_CLK 18
+#define SPI_MOSI 19
+#define CAN_INT 20    // Interrupt from CAN controller
+#define CAN_CLK 21    // 8MHz clock for CAN
+#define CAN_SLEEP 22  // Shut down CAN transceiver
+
 #define REG_BFPCTRL                0x0c
 #define REG_TXRTSCTRL              0x0d
 
@@ -55,3 +73,29 @@
 
 #define MODE_NORMAL                0x00
 #define MODE_SLEEP                 0x01
+
+void CAN_init();
+
+void CAN_reset();
+
+uint8_t CAN_reg_read(uint8_t reg);
+
+void CAN_reg_write(uint8_t reg, uint8_t val);
+
+void CAN_reg_modify(uint8_t reg, uint8_t mask, uint8_t val);
+
+void CAN_configure(uint16_t id);
+
+void CAN_send_pack_voltage(float pack_voltage_mV, float current_A);
+
+void CAN_send_errors(t_error_flags error_flags);
+
+void CAN_send_min_max_values(float min_voltage_mV, float max_voltage_mV, float min_temperature_C, float max_temperature_C);
+
+void CAN_send_individual_cell_voltage(uint8_t chain, uint8_t slave, uint8_t cell, float voltage_mV);
+
+void CAN_send_individual_temperature_battery(uint8_t chain, uint8_t slave, uint8_t sensor_number, float temperature_C);
+
+void CAN_send_individual_temperature_pcb(uint8_t chain, uint8_t slave, uint8_t sensor_number, float temperature_C);
+
+#endif
